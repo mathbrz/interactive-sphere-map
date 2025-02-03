@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sphere Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    /* Reset e layout geral */
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+    }
+    /* Container do mapa */
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+    /* Estilo dos tooltips dos marcadores */
+    .castle-label {
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      color: white;
+      text-shadow: 1px 1px 2px black;
+      white-space: nowrap;
+      background: none;
+      border: none;
+      padding: 2px;
+    }
+    /* Painel de controle */
+    #control-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 350px;
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      z-index: 1000;
+    }
+    #control-panel h1 {
+      margin: 0 0 10px;
+      font-size: 20px;
+      text-align: center;
+    }
+    /* Botões "Mostrar tudo" e "Esconder tudo" */
+    .button-group {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .button-group button {
+      flex: 1;
+      margin: 0 5px;
+      padding: 8px;
+      background: #444;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .button-group button:hover {
+      background: #666;
+    }
+    /* Caixa de pesquisa com auto-complete */
+    .search-container {
+      display: flex;
+      margin-bottom: 10px;
+      position: relative;
+    }
+    .search-container input[type="text"] {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      border-radius: 4px 0 0 4px;
+      font-size: 14px;
+      color: #555;
+    }
+    .search-container input[type="text"]::placeholder {
+      color: #777;
+    }
+    .search-container button {
+      padding: 8px 12px;
+      border: none;
+      background: #444;
+      color: white;
+      border-radius: 0 4px 4px 0;
+      cursor: pointer;
+    }
+    .search-container button:hover {
+      background: #666;
+    }
+    /* Sugestões de pesquisa */
+    #searchSuggestions {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #ccc;
+      z-index: 1100;
+      display: none;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    #searchSuggestions div {
+      padding: 8px;
+      cursor: pointer;
+      color: #333;
+    }
+    #searchSuggestions div:hover {
+      background: #f0f0f0;
+    }
+    /* Área para exibir coordenadas do clique no mapa */
+    #coords {
+      margin-top: 10px;
+      font-size: 14px;
+      text-align: center;
+      padding: 5px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 4px;
+    }
+    /* Dropdowns: os conteúdos se expandem no fluxo */
+    .dropdown {
+      margin-bottom: 10px;
+    }
+    /* Cabeçalho dos dropdowns com checkbox para categoria */
+    .dropdown > .dropdown-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .dropdown > .dropdown-header label {
+      margin: 0;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .dropdown > .dropdown-header button {
+      background: #444;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 8px;
+      cursor: pointer;
+    }
+    .dropdown-content {
+      display: none;
+      margin-top: 5px;
+      background: #555;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .dropdown-content label {
+      display: block;
+      margin-bottom: 5px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    /* Sub-dropdowns para Comerciantes */
+    .dropdown .dropdown {
+      margin-bottom: 0;
+    }
+    .dropdown .dropdown > button {
+      background: #666;
+      font-size: 13px;
+    }
+    .dropdown .dropdown-content {
+      background: #777;
+      padding: 5px;
+    }
+    .dropdown .dropdown-content label {
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Painel de controle -->
+  <div id="control-panel">
+    <h1>Sphere Map</h1>
+    <div class="button-group">
+      <button id="showAll">Mostrar tudo</button>
+      <button id="hideAll">Esconder tudo</button>
+    </div>
+    <div class="search-container">
+      <input type="text" id="searchInput" placeholder="Pesquisar..." />
+      <button id="searchButton">Pesquisar</button>
+      <div id="searchSuggestions"></div>
+    </div>
+    <div id="coords">Clique no mapa para ver as coordenadas</div>
+    
+    <!-- Dropdown Castelos com checkbox de categoria -->
+    <div class="dropdown">
+      <div class="dropdown-header">
+        <label><input type="checkbox" id="toggle-castelos" checked> Castelos</label>
+        <button id="dropdown-castelos">&#9662;</button>
+      </div>
+      <div class="dropdown-content" id="dropdown-content-castelos">
+        <label><input type="checkbox" id="castle15" checked> Castelos 15</label>
+        <label><input type="checkbox" id="castle30" checked> Castelos 30</label>
+        <label><input type="checkbox" id="castle45" checked> Castelos 45</label>
+      </div>
+    </div>
+    
+    <!-- Dropdown Teleporte de Runas com checkbox de categoria -->
+    <div class="dropdown">
+      <div class="dropdown-header">
+        <label><input type="checkbox" id="toggle-teleporte" checked> Teleporte de Runas</label>
+        <button id="dropdown-teleporte">&#9662;</button>
+      </div>
+      <div class="dropdown-content" id="dropdown-content-teleporte">
+        <label><input type="checkbox" id="teleporte1" checked> Northern Road of Hyperion</label>
+        <label><input type="checkbox" id="teleporte2" checked> North-western end of Hyperion</label>
+        <label><input type="checkbox" id="teleporte3" checked> Sheepston-Sunpool Road</label>
+        <label><input type="checkbox" id="teleporte4" checked> Field by the Sheepstone-Sunpool Road</label>
+        <label><input type="checkbox" id="teleporte5" checked> North-east of Hyperion</label>
+        <label><input type="checkbox" id="teleporte6" checked> Umrad Forest</label>
+        <label><input type="checkbox" id="teleporte7" checked> Silver Forest</label>
+        <label><input type="checkbox" id="teleporte8" checked> Sheepston-Torweal Road</label>
+        <label><input type="checkbox" id="teleporte9" checked> Mountains between Sheepstone and Bangville</label>
+        <label><input type="checkbox" id="teleporte10" checked> Lake Temer</label>
+        <label><input type="checkbox" id="teleporte11" checked> Sheepston-Sunpool Road near Lake Vortex</label>
+        <label><input type="checkbox" id="teleporte12" checked> Sunpool-Bangville Road near Lake Vortex</label>
+        <label><input type="checkbox" id="teleporte13" checked> Heber Island (Lake Temer)</label>
+        <label><input type="checkbox" id="teleporte14" checked> Foros Island (Lake Vortex)</label>
+        <label><input type="checkbox" id="teleporte15" checked> Mounth of the Nerey</label>
+        <label><input type="checkbox" id="teleporte16" checked> Deyros Island (Lake Vortex)</label>
+        <label><input type="checkbox" id="teleporte17" checked> Eastern Forest</label>
+        <label><input type="checkbox" id="teleporte18" checked> Mounth of Dioma</label>
+        <label><input type="checkbox" id="teleporte19" checked> Horton Forest</label>
+        <label><input type="checkbox" id="teleporte20" checked> Mountains near the Sunpool-Torweal Road</label>
+        <label><input type="checkbox" id="teleporte21" checked> Island Patros (Lake Satin)</label>
+        <label><input type="checkbox" id="teleporte22" checked> South-Eastern mountains pocket</label>
+        <label><input type="checkbox" id="teleporte23" checked> North of Coyton Forest</label>
+        <label><input type="checkbox" id="teleporte24" checked> South-western end of Hyperion</label>
+        <label><input type="checkbox" id="teleporte25" checked> Tantal Bridge</label>
+        <label><input type="checkbox" id="teleporte26" checked> Obol</label>
+      </div>
+    </div>
+    
+    <!-- Dropdown Florestas com checkbox de categoria -->
+    <div class="dropdown">
+      <div class="dropdown-header">
+        <label><input type="checkbox" id="toggle-florestas" checked> Florestas</label>
+        <button id="dropdown-florestas">&#9662;</button>
+      </div>
+      <div class="dropdown-content" id="dropdown-content-florestas">
+        <label><input type="checkbox" id="floresta1" checked> Silver forest</label>
+      </div>
+    </div>
+    
+    <!-- Dropdown Profissões com checkbox de categoria -->
+    <div class="dropdown">
+      <div class="dropdown-header">
+        <label><input type="checkbox" id="toggle-profissoes" checked> Profissões</label>
+        <button id="dropdown-profissoes">&#9662;</button>
+      </div>
+      <div class="dropdown-content" id="dropdown-content-profissoes">
+        <label><input type="checkbox" id="prof-arquimago" checked> Arquimago</label>
+        <label><input type="checkbox" id="prof-armeiro" checked> Armeiro</label>
+        <label><input type="checkbox" id="prof-assassino" checked> Assassino</label>
+        <label><input type="checkbox" id="prof-barbaro" checked> Bárbaro</label>
+        <label><input type="checkbox" id="prof-bandoleiro" checked> Bandoleiro</label>
+        <label><input type="checkbox" id="prof-cacador" checked> Caçador</label>
+        <label><input type="checkbox" id="prof-cruzado" checked> Cruzado</label>
+        <label><input type="checkbox" id="prof-druida" checked> Druida</label>
+        <label><input type="checkbox" id="prof-encantador" checked> Encantador</label>
+        <label><input type="checkbox" id="prof-ferreiro" checked> Ferreiro</label>
+        <label><input type="checkbox" id="prof-inquisidor" checked> Inquisidor</label>
+        <label><input type="checkbox" id="prof-ladrao" checked> Ladrão</label>
+        <label><input type="checkbox" id="prof-mestreaco" checked> Mestre do Aço</label>
+        <label><input type="checkbox" id="prof-necromante" checked> Necromante</label>
+      </div>
+    </div>
+    
+    <!-- Dropdown Comerciantes com checkbox de categoria -->
+    <div class="dropdown">
+      <div class="dropdown-header">
+        <label><input type="checkbox" id="toggle-comerciantes" checked> Comerciantes</label>
+        <button id="dropdown-comerciantes">&#9662;</button>
+      </div>
+      <div class="dropdown-content" id="dropdown-content-comerciantes">
+        <!-- Sub-dropdown para Armas -->
+        <div class="dropdown">
+          <button id="dropdown-armas">Armas &#9662;</button>
+          <div class="dropdown-content" id="dropdown-content-armas">
+            <label><input type="checkbox" id="comerciante-armas-1aV" checked> I a V</label>
+            <label><input type="checkbox" id="comerciante-armas-VIaIX" checked> VI a IX</label>
+            <label><input type="checkbox" id="comerciante-armas-XaXII" checked> X a XII</label>
+          </div>
+        </div>
+        <!-- Sub-dropdown para Armaduras -->
+        <div class="dropdown">
+          <button id="dropdown-armaduras">Armaduras &#9662;</button>
+          <div class="dropdown-content" id="dropdown-content-armaduras">
+            <label><input type="checkbox" id="comerciante-armaduras-1aV" checked> I a V</label>
+            <label><input type="checkbox" id="comerciante-armaduras-VIaIX" checked> VI a IX</label>
+            <label><input type="checkbox" id="comerciante-armaduras-XaXII" checked> X a XII</label>
+          </div>
+        </div>
+        <!-- Sub-dropdown para Anéis -->
+        <div class="dropdown">
+          <button id="dropdown-aneis">Anéis &#9662;</button>
+          <div class="dropdown-content" id="dropdown-content-aneis">
+            <label><input type="checkbox" id="comerciante-aneis-1aV" checked> I a V</label>
+            <label><input type="checkbox" id="comerciante-aneis-VIaIX" checked> VI a IX</label>
+            <label><input type="checkbox" id="comerciante-aneis-XaXII" checked> X a XII</label>
+          </div>
+        </div>
+        <!-- Sub-dropdown para Pós -->
+        <div class="dropdown">
+          <button id="dropdown-pos">Pós &#9662;</button>
+          <div class="dropdown-content" id="dropdown-content-pos">
+            <label><input type="checkbox" id="comerciante-pos-1aV" checked> I a V</label>
+            <label><input type="checkbox" id="comerciante-pos-VIaIX" checked> VI a IX</label>
+            <label><input type="checkbox" id="comerciante-pos-XaXII" checked> X a XII</label>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Crateras: movida para a última posição -->
+    <div style="margin-bottom:10px;">
+      <label><input type="checkbox" id="craterasToggle" checked> Crateras</label>
+    </div>
+  </div>
+  
+  <!-- Container do mapa -->
+  <div id="map"></div>
+  
+  <!-- Importa o Leaflet -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      // Inicializa o mapa sem os controles de zoom padrão e reposiciona-os
+      var map = L.map('map', {
+        crs: L.CRS.Simple,
+        minZoom: -2,
+        maxZoom: 2,
+        zoomControl: false
+      });
+      L.control.zoom({ position: 'topright' }).addTo(map);
+      
+      // Adiciona a imagem de fundo
+      var imageUrl = 'Hyperion-BR.png';
+      var imageBounds = [[0, 0], [1536, 888]];
+      L.imageOverlay(imageUrl, imageBounds).addTo(map);
+      map.setView([768, 444], 0);
+      
+      // Função para criar ícones com tamanho padrão (30)
+      function createIcon(iconUrl) {
+        return L.icon({
+          iconUrl: iconUrl,
+          iconSize: [30, 30],
+          iconAnchor: [15, 30]
+        });
+      }
+      
+      // Ícones padrão para cada categoria
+      var casteloIcon = createIcon('Ico/Castelo.png');
+      var teleporteIcon = createIcon('Ico/Teleporte.png'); // Altere conforme necessário
+      var florestaIcon = createIcon('Ico/Floresta.png');     // Altere conforme necessário
+      // Para profissões, cada uma terá seu próprio ícone:
+      var profIcons = {
+        "Arquimago": createIcon("Ico/Arquimago.png"),
+        "Armeiro": createIcon("Ico/Armeiro.png"),
+        "Assassino": createIcon("Ico/Assassino.png"),
+        "Bárbaro": createIcon("Ico/Barbaro.png"),
+        "Bandoleiro": createIcon("Ico/Bandoleiro.png"),
+        "Caçador": createIcon("Ico/Caçador.png"),
+        "Cruzado": createIcon("Ico/Cruzado.png"),
+        "Druida": createIcon("Ico/Druida.png"),
+        "Encantador": createIcon("Ico/Encantador.png"),
+        "Ferreiro": createIcon("Ico/Ferreiro.png"),
+        "Inquisidor": createIcon("Ico/Inquisidor.png"),
+        "Ladrão": createIcon("Ico/Ladrao.png"),
+        "Mestre do Aço": createIcon("Ico/MestreDoAco.png"),
+        "Necromante": createIcon("Ico/Necromante.png")
+      };
+      var crateraIcon = createIcon('Ico/Cratera.png'); // Altere conforme necessário
+      
+      // Ícones para comerciantes – cada um com ícone diferente
+      var comercianteArmasIcon = createIcon('Ico/ComercianteArmas.png');
+      var comercianteArmadurasIcon = createIcon('Ico/ComercianteArmaduras.png');
+      var comercianteAneisIcon = createIcon('Ico/ComercianteAneis.png');
+      var comerciantePosIcon = createIcon('Ico/ComerciantePos.png');
+      
+      // Arrays de marcadores para cada categoria
+      
+      // Castelos por nível
+      var castelos15 = [
+        { nome: 'Liege', pos: [852, 462] },
+        { nome: 'Peltier', pos: [671.5, 513.5] },
+        { nome: 'Aris', pos: [1054, 694] },
+        { nome: 'Chatelie', pos: [604, 263] }
+      ];
+      var castelos30 = [
+        { nome: 'Gideon', pos: [394, 151] },
+        { nome: 'Feoff', pos: [791, 594] },
+        { nome: 'Latour', pos: [1156, 456] },
+        { nome: 'Cablac', pos: [1039, 384] },
+        { nome: 'Eikum Kas', pos: [928, 343] },
+        { nome: 'Sabulat', pos: [468, 301] },
+        { nome: 'Triumphaler', pos: [333, 364] },
+        { nome: 'Ionat', pos: [368, 747] },
+        { nome: 'Blessendour', pos: [132, 484] },
+        { nome: 'Devanagary', pos: [505, 561] }
+      ];
+      var castelos45 = [
+        { nome: 'Ammalaelle', pos: [913, 151] },
+        { nome: 'Tyanod', pos: [1343, 762] },
+        { nome: 'Temoval', pos: [997, 840] },
+        { nome: 'Kare Royal', pos: [552, 786] },
+        { nome: 'Diffensat', pos: [77, 103] }
+      ];
+      
+      // Teleporte de Runas (dados de exemplo)
+      var teleportes = [
+        { nome: 'Northern Road of Hyperion', pos: [1278, 682] },
+        { nome: 'North-western end of Hyperion', pos: [1096, 149] },
+        { nome: 'Sheepston-Sunpool Road', pos: [1069.5, 459] },
+        { nome: 'Field by the Sheepstone-Sunpool Road', pos: [1026.5, 511] },
+        { nome: 'North-east of Hyperion', pos: [1034, 834] },
+        { nome: 'Umrad Forest', pos: [980, 514] },
+        { nome: 'Silver Forest', pos: [974, 258] },
+        { nome: 'Sheepston-Torweal Road', pos: [945, 658.5] },
+        { nome: 'Mountains between Sheepstone and Bangville', pos: [898, 587.5] },
+        { nome: 'Lake Temer', pos: [857, 814.5] },
+        { nome: 'Sheepston-Sunpool Road near Lake Vortex', pos: [783, 114] },
+        { nome: 'Sunpool-Bangville Road near Lake Vortex', pos: [782, 318] },
+        { nome: 'Heber Island (Lake Temer)', pos: [777, 755.5] },
+        { nome: 'Foros Island (Lake Vortex)', pos: [712.103608, 208.018284] },
+        { nome: 'Mounth of the Nerey', pos: [715, 388] },
+        { nome: 'Deyros Island (Lake Vortex)', pos: [541, 351] },
+        { nome: 'Eastern Forest', pos: [542, 819.5] },
+        { nome: 'Mounth of Dioma', pos: [502.5, 514.5] },
+        { nome: 'Horton Forest', pos: [440.103608, 100.018284] },
+        { nome: 'Mountains near the Sunpool-Torweal Road', pos: [] },
+        { nome: 'Island Patros (Lake Satin)', pos: [237.5, 369] },
+        { nome: 'South-Eastern mountains pocket', pos: [262.5, 611] },
+        { nome: 'North of Coyton Forest', pos: [139, 154] },
+        { nome: 'South-western end of Hyperion', pos: [54, 76] },
+        { nome: 'Tantal Bridge', pos: [1144.998227, 317.000074] },
+        { nome: 'Obol', pos: [1199, 285] }
+      ];
+      
+      // Florestas (placeholder)
+      var florestas = [
+        { nome: 'Silver forest', pos: [] }
+      ];
+      
+      // Profissões (dados de exemplo)
+      var profissoes = [
+        { nome: 'Arquimago', pos: [304, 410] },
+        { nome: 'Armeiro', pos: [98, 526] },
+        { nome: 'Assassino', pos: [473, 779] },
+        { nome: 'Bárbaro', pos: [740, 805] },
+        { nome: 'Bandoleiro', pos: [290.5, 703] },
+        { nome: 'Caçador', pos: [644.25, 545.25] },
+        { nome: 'Cruzado', pos: [871, 72] },
+        { nome: 'Druida', pos: [928, 417] },
+        { nome: 'Encantador', pos: [1062, 238] },
+        { nome: 'Ferreiro', pos: [1050.5, 583.5] },
+        { nome: 'Inquisidor', pos: [322, 89] },
+        { nome: 'Ladrão', pos: [1198, 323.5] },
+        { nome: 'Mestre do Aço', pos: [1395.5, 767] },
+        { nome: 'Necromante', pos: [502.5, 418] }
+      ];
+      
+      // Crateras (dados de exemplo)
+      var crateras = [
+        { nome: 'Cratera', pos: [782, 318] },
+        { nome: 'Cratera', pos: [139, 154] },
+        { nome: 'Cratera', pos: [865, 364] },
+        { nome: 'Cratera', pos: [1182, 364] },
+        { nome: 'Cratera', pos: [1278, 682] },
+        { nome: 'Cratera', pos: [945, 658.5] },
+        { nome: 'Cratera', pos: [898, 587.5] },
+        { nome: 'Cratera', pos: [1026.5, 511] },
+        { nome: 'Cratera', pos: [542, 819.5] },
+        { nome: 'Cratera', pos: [262.5, 611] },
+        { nome: 'Cratera', pos: [440.103608, 100.018284] },
+        { nome: 'Cratera', pos: [237.5, 369] },
+        { nome: 'Cratera', pos: [444, 361] },
+        { nome: 'Cratera', pos: [974, 258] }
+      ];
+      
+      // Comerciantes (dados de exemplo para cada subdivisão)
+      var comerciantesArmas = {
+        "I a V": [
+          { nome: 'Comerciante Armas I a V', pos: [150, 150] }
+        ],
+        "VI a IX": [
+          { nome: 'Comerciante Armas VI a IX', pos: [150, 200] }
+        ],
+        "X a XII": [
+          { nome: 'Comerciante Armas X a XII', pos: [150, 250] }
+        ]
+      };
+      var comerciantesArmaduras = {
+        "I a V": [
+          { nome: 'Comerciante Armaduras I a V', pos: [250, 150] }
+        ],
+        "VI a IX": [
+          { nome: 'Comerciante Armaduras VI a IX', pos: [250, 200] }
+        ],
+        "X a XII": [
+          { nome: 'Comerciante Armaduras X a XII', pos: [250, 250] }
+        ]
+      };
+      var comerciantesAneis = {
+        "I a V": [
+          { nome: 'Comerciante Anéis I a V', pos: [350, 150] }
+        ],
+        "VI a IX": [
+          { nome: 'Comerciante Anéis VI a IX', pos: [350, 200] }
+        ],
+        "X a XII": [
+          { nome: 'Comerciante Anéis X a XII', pos: [350, 250] }
+        ]
+      };
+      var comerciantesPos = {
+        "I a V": [
+          { nome: 'Comerciante Pós I a V', pos: [450, 150] }
+        ],
+        "VI a IX": [
+          { nome: 'Comerciante Pós VI a IX', pos: [450, 200] }
+        ],
+        "X a XII": [
+          { nome: 'Comerciante Pós X a XII', pos: [450, 250] }
+        ]
+      };
+      
+      // Cria layer groups para cada categoria
+      var castleLayer15 = L.layerGroup();
+      var castleLayer30 = L.layerGroup();
+      var castleLayer45 = L.layerGroup();
+      var teleporteLayer = L.layerGroup();
+      var florestaLayer = L.layerGroup();
+      var profissaoLayer = L.layerGroup();
+      var crateraLayer = L.layerGroup();
+      var comercianteLayerArmas = L.layerGroup();
+      var comercianteLayerArmaduras = L.layerGroup();
+      var comercianteLayerAneis = L.layerGroup();
+      var comercianteLayerPos = L.layerGroup();
+      
+      // Função para adicionar marcadores a um layer group (se a posição existir)
+      function addMarkers(layer, items, iconFunc) {
+        layer.clearLayers();
+        items.forEach(function(item) {
+          if (item.pos && item.pos.length > 0) {
+            var marker = L.marker(item.pos, { icon: iconFunc(item) });
+            marker.bindTooltip("<span class='castle-label'>" + item.nome + "</span>", {
+              permanent: true,
+              direction: 'bottom',
+              offset: [0, 10],
+              className: 'castle-label'
+            });
+            layer.addLayer(marker);
+          }
+        });
+      }
+      
+      // Para castelos, usamos sempre o mesmo ícone (casteloIcon)
+      function castleIconFunc(item) {
+        return casteloIcon;
+      }
+      addMarkers(castleLayer15, castelos15, castleIconFunc);
+      addMarkers(castleLayer30, castelos30, castleIconFunc);
+      addMarkers(castleLayer45, castelos45, castleIconFunc);
+      
+      // Para teleportes, usamos teleporteIcon
+      function teleporteIconFunc(item) {
+        return teleporteIcon;
+      }
+      addMarkers(teleporteLayer, teleportes, teleporteIconFunc);
+      
+      // Para crateras, usamos crateraIcon
+      function crateraIconFunc(item) {
+        return crateraIcon;
+      }
+      addMarkers(crateraLayer, crateras, crateraIconFunc);
+      
+      // Para profissões, usamos ícones individuais a partir de profIcons
+      function profIconFunc(item) {
+        return profIcons[item.nome] || createIcon("Ico/Profissao.png");
+      }
+      addMarkers(profissaoLayer, profissoes, profIconFunc);
+      
+      // Para comerciantes, criamos uma função que itera sobre cada subcategoria e adiciona os marcadores
+      function addComercianteMarkers(layer, comercianteObj, icon) {
+        layer.clearLayers();
+        for (var key in comercianteObj) {
+          comercianteObj[key].forEach(function(item) {
+            if (item.pos && item.pos.length > 0) {
+              var marker = L.marker(item.pos, { icon: icon });
+              marker.bindTooltip("<span class='castle-label'>" + item.nome + "</span>", {
+                permanent: true,
+                direction: 'bottom',
+                offset: [0, 10],
+                className: 'castle-label'
+              });
+              layer.addLayer(marker);
+            }
+          });
+        }
+      }
+      
+      var comercianteArmasIcon = createIcon('Ico/ComercianteArmas.png');
+      var comercianteArmadurasIcon = createIcon('Ico/ComercianteArmaduras.png');
+      var comercianteAneisIcon = createIcon('Ico/ComercianteAneis.png');
+      var comerciantePosIcon = createIcon('Ico/ComerciantePos.png');
+      
+      addComercianteMarkers(comercianteLayerArmas, comerciantesArmas, comercianteArmasIcon);
+      addComercianteMarkers(comercianteLayerArmaduras, comerciantesArmaduras, comercianteArmadurasIcon);
+      addComercianteMarkers(comercianteLayerAneis, comerciantesAneis, comercianteAneisIcon);
+      addComercianteMarkers(comercianteLayerPos, comerciantesPos, comerciantePosIcon);
+      
+      // Adiciona todas as layers ao mapa inicialmente
+      castleLayer15.addTo(map);
+      castleLayer30.addTo(map);
+      castleLayer45.addTo(map);
+      teleporteLayer.addTo(map);
+      florestaLayer.addTo(map);
+      profissaoLayer.addTo(map);
+      crateraLayer.addTo(map);
+      comercianteLayerArmas.addTo(map);
+      comercianteLayerArmaduras.addTo(map);
+      comercianteLayerAneis.addTo(map);
+      comercianteLayerPos.addTo(map);
+      
+      // Event listener para o checkbox de Crateras
+      document.getElementById("craterasToggle").addEventListener("change", function() {
+        if (this.checked) {
+          map.addLayer(crateraLayer);
+        } else {
+          map.removeLayer(crateraLayer);
+        }
+      });
+      
+      // Função para atualizar todas as layers
+      function updateAllLayers(visible) {
+        if (visible) {
+          if (!map.hasLayer(castleLayer15)) map.addLayer(castleLayer15);
+          if (!map.hasLayer(castleLayer30)) map.addLayer(castleLayer30);
+          if (!map.hasLayer(castleLayer45)) map.addLayer(castleLayer45);
+          if (!map.hasLayer(teleporteLayer)) map.addLayer(teleporteLayer);
+          if (!map.hasLayer(florestaLayer)) map.addLayer(florestaLayer);
+          if (!map.hasLayer(profissaoLayer)) map.addLayer(profissaoLayer);
+          if (!map.hasLayer(crateraLayer)) map.addLayer(crateraLayer);
+          if (!map.hasLayer(comercianteLayerArmas)) map.addLayer(comercianteLayerArmas);
+          if (!map.hasLayer(comercianteLayerArmaduras)) map.addLayer(comercianteLayerArmaduras);
+          if (!map.hasLayer(comercianteLayerAneis)) map.addLayer(comercianteLayerAneis);
+          if (!map.hasLayer(comercianteLayerPos)) map.addLayer(comercianteLayerPos);
+        } else {
+          if (map.hasLayer(castleLayer15)) map.removeLayer(castleLayer15);
+          if (map.hasLayer(castleLayer30)) map.removeLayer(castleLayer30);
+          if (map.hasLayer(castleLayer45)) map.removeLayer(castleLayer45);
+          if (map.hasLayer(teleporteLayer)) map.removeLayer(teleporteLayer);
+          if (map.hasLayer(florestaLayer)) map.removeLayer(florestaLayer);
+          if (map.hasLayer(profissaoLayer)) map.removeLayer(profissaoLayer);
+          if (map.hasLayer(crateraLayer)) map.removeLayer(crateraLayer);
+          if (map.hasLayer(comercianteLayerArmas)) map.removeLayer(comercianteLayerArmas);
+          if (map.hasLayer(comercianteLayerAneis)) map.removeLayer(comercianteLayerAneis);
+          if (map.hasLayer(comercianteLayerPos)) map.removeLayer(comercianteLayerPos);
+          if (map.hasLayer(comercianteLayerArmaduras)) map.removeLayer(comercianteLayerArmaduras);
+        }
+      }
+      
+      // Funções para os botões "Mostrar tudo" e "Esconder tudo"
+      function showAll() {
+        updateAllLayers(true);
+        document.querySelectorAll("#control-panel input[type='checkbox']").forEach(function(chk){
+          chk.checked = true;
+        });
+      }
+      function hideAll() {
+        updateAllLayers(false);
+        document.querySelectorAll("#control-panel input[type='checkbox']").forEach(function(chk){
+          chk.checked = false;
+        });
+      }
+      document.getElementById("showAll").addEventListener("click", showAll);
+      document.getElementById("hideAll").addEventListener("click", hideAll);
+      
+      // Vincula os checkboxes dos sub-dropdowns de Castelos
+      document.getElementById("castle15").addEventListener("change", function() {
+        if (this.checked) {
+          map.addLayer(castleLayer15);
+        } else {
+          map.removeLayer(castleLayer15);
+        }
+      });
+      document.getElementById("castle30").addEventListener("change", function() {
+        if (this.checked) {
+          map.addLayer(castleLayer30);
+        } else {
+          map.removeLayer(castleLayer30);
+        }
+      });
+      document.getElementById("castle45").addEventListener("change", function() {
+        if (this.checked) {
+          map.addLayer(castleLayer45);
+        } else {
+          map.removeLayer(castleLayer45);
+        }
+      });
+      
+      // Event listeners para os checkboxes de cada categoria principal
+      // Castelos
+      document.getElementById("toggle-castelos").addEventListener("change", function() {
+        if (this.checked) {
+          if (!map.hasLayer(castleLayer15)) map.addLayer(castleLayer15);
+          if (!map.hasLayer(castleLayer30)) map.addLayer(castleLayer30);
+          if (!map.hasLayer(castleLayer45)) map.addLayer(castleLayer45);
+        } else {
+          map.removeLayer(castleLayer15);
+          map.removeLayer(castleLayer30);
+          map.removeLayer(castleLayer45);
+        }
+      });
+      // Teleporte de Runas
+      document.getElementById("toggle-teleporte").addEventListener("change", function() {
+        if (this.checked) {
+          if (!map.hasLayer(teleporteLayer)) map.addLayer(teleporteLayer);
+        } else {
+          map.removeLayer(teleporteLayer);
+        }
+      });
+      // Florestas
+      document.getElementById("toggle-florestas").addEventListener("change", function() {
+        if (this.checked) {
+          if (!map.hasLayer(florestaLayer)) map.addLayer(florestaLayer);
+        } else {
+          map.removeLayer(florestaLayer);
+        }
+      });
+      // Profissões
+      document.getElementById("toggle-profissoes").addEventListener("change", function() {
+        if (this.checked) {
+          if (!map.hasLayer(profissaoLayer)) map.addLayer(profissaoLayer);
+        } else {
+          map.removeLayer(profissaoLayer);
+        }
+      });
+      // Comerciantes
+      document.getElementById("toggle-comerciantes").addEventListener("change", function() {
+        if (this.checked) {
+          if (!map.hasLayer(comercianteLayerArmas)) map.addLayer(comercianteLayerArmas);
+          if (!map.hasLayer(comercianteLayerArmaduras)) map.addLayer(comercianteLayerArmaduras);
+          if (!map.hasLayer(comercianteLayerAneis)) map.addLayer(comercianteLayerAneis);
+          if (!map.hasLayer(comercianteLayerPos)) map.addLayer(comercianteLayerPos);
+        } else {
+          map.removeLayer(comercianteLayerArmas);
+          map.removeLayer(comercianteLayerArmaduras);
+          map.removeLayer(comercianteLayerAneis);
+          map.removeLayer(comercianteLayerPos);
+        }
+      });
+      
+      // Event listeners para os sub-dropdowns de Comerciantes
+      document.getElementById("dropdown-armas").addEventListener("click", function() {
+        toggleDropdown("dropdown-content-armas");
+      });
+      document.getElementById("dropdown-armaduras").addEventListener("click", function() {
+        toggleDropdown("dropdown-content-armaduras");
+      });
+      document.getElementById("dropdown-aneis").addEventListener("click", function() {
+        toggleDropdown("dropdown-content-aneis");
+      });
+      document.getElementById("dropdown-pos").addEventListener("click", function() {
+        toggleDropdown("dropdown-content-pos");
+      });
+      
+      // Função para alternar a exibição do conteúdo dos dropdowns
+      function toggleDropdown(id) {
+        var content = document.getElementById(id);
+        content.style.display = (content.style.display === "block") ? "none" : "block";
+      }
+      // Event listeners para os dropdowns principais
+      document.getElementById("dropdown-castelos").addEventListener("click", function() {
+        toggleDropdown("dropdown-content-castelos");
+      });
+      document.getElementById("dropdown-teleporte").addEventListener("click", function() {
+        toggleDropdown("dropdown-content-teleporte");
+      });
+      document.getElementById("dropdown-florestas").addEventListener("click", function() {
+        toggleDropdown("dropdown-content-florestas");
+      });
+      document.getElementById("dropdown-profissoes").addEventListener("click", function() {
+        toggleDropdown("dropdown-content-profissoes");
+      });
+      document.getElementById("dropdown-comerciantes").addEventListener("click", function() {
+        toggleDropdown("dropdown-content-comerciantes");
+      });
+      
+      // Captura a posição ao clicar no mapa e exibe no painel
+      map.on('click', function(e) {
+        var coordsDiv = document.getElementById("coords");
+        coordsDiv.textContent = "Posição clicada: " + e.latlng.toString();
+        console.log("Posição clicada:", e.latlng);
+      });
+      
+      // Pesquisa com auto-complete (agora incluindo nomes de teleportes e comerciantes)
+      var suggestions = [];
+      function updateSuggestions() {
+        suggestions = [];
+        [castelos15, castelos30, castelos45].forEach(function(arr) {
+          arr.forEach(function(item) {
+            suggestions.push(item.nome);
+          });
+        });
+        teleportes.forEach(function(item) {
+          suggestions.push(item.nome);
+        });
+        // Adiciona sugestões para comerciantes
+        for (var key in comerciantesArmas) {
+          comerciantesArmas[key].forEach(function(item) {
+            suggestions.push(item.nome);
+          });
+        }
+        for (var key in comerciantesArmaduras) {
+          comerciantesArmaduras[key].forEach(function(item) {
+            suggestions.push(item.nome);
+          });
+        }
+        for (var key in comerciantesAneis) {
+          comerciantesAneis[key].forEach(function(item) {
+            suggestions.push(item.nome);
+          });
+        }
+        for (var key in comerciantesPos) {
+          comerciantesPos[key].forEach(function(item) {
+            suggestions.push(item.nome);
+          });
+        }
+      }
+      updateSuggestions();
+      var searchInput = document.getElementById("searchInput");
+      var searchSuggestions = document.getElementById("searchSuggestions");
+      searchInput.addEventListener("input", function() {
+        var query = this.value.toLowerCase();
+        searchSuggestions.innerHTML = "";
+        if (query === "") {
+          searchSuggestions.style.display = "none";
+          return;
+        }
+        var matches = suggestions.filter(function(item) {
+          return item.toLowerCase().indexOf(query) !== -1;
+        });
+        if (matches.length > 0) {
+          matches.forEach(function(match) {
+            var div = document.createElement("div");
+            div.textContent = match;
+            div.addEventListener("click", function() {
+              searchInput.value = match;
+              searchSuggestions.innerHTML = "";
+              searchSuggestions.style.display = "none";
+              searchMarkers(match);
+            });
+            searchSuggestions.appendChild(div);
+          });
+          searchSuggestions.style.display = "block";
+        } else {
+          searchSuggestions.style.display = "none";
+        }
+      });
+      
+      // Função de pesquisa: busca entre os marcadores de castelos, teleportes e comerciantes
+      function searchMarkers(query) {
+        query = query.toLowerCase();
+        var found = false;
+        var markerFound;
+        // Função auxiliar que itera sobre uma layer group e procura o marcador
+        function searchLayerGroup(layerGroup) {
+          layerGroup.eachLayer(function(marker) {
+            var content = marker.getTooltip().getContent().replace(/<[^>]+>/g, '').toLowerCase();
+            if (content.indexOf(query) !== -1) {
+              markerFound = marker;
+              found = true;
+            }
+          });
+        }
+        searchLayerGroup(castleLayer15);
+        searchLayerGroup(castleLayer30);
+        searchLayerGroup(castleLayer45);
+        searchLayerGroup(teleporteLayer);
+        searchLayerGroup(comercianteLayerArmas);
+        searchLayerGroup(comercianteLayerArmaduras);
+        searchLayerGroup(comercianteLayerAneis);
+        searchLayerGroup(comercianteLayerPos);
+        if (found && markerFound) {
+          map.setView(markerFound.getLatLng(), 1);
+          markerFound.openTooltip();
+        } else {
+          alert("Nenhum marcador encontrado para: " + query);
+        }
+      }
+      
+      document.getElementById("searchButton").addEventListener("click", function() {
+        var query = searchInput.value;
+        searchMarkers(query);
+      });
+      
+      // Adiciona os marcadores para comerciantes
+      function addComercianteMarkers(layer, comercianteObj, icon) {
+        layer.clearLayers();
+        for (var key in comercianteObj) {
+          comercianteObj[key].forEach(function(item) {
+            if (item.pos && item.pos.length > 0) {
+              var marker = L.marker(item.pos, { icon: icon });
+              marker.bindTooltip("<span class='castle-label'>" + item.nome + "</span>", {
+                permanent: true,
+                direction: 'bottom',
+                offset: [0, 10],
+                className: 'castle-label'
+              });
+              layer.addLayer(marker);
+            }
+          });
+        }
+      }
+      
+      // Adicionando dados de exemplo para comerciantes (você pode substituir esses dados futuramente)
+      comerciantesArmas["I a V"].push({ nome: 'Comerciante Armas I a V', pos: [150, 150] });
+      comerciantesArmas["VI a IX"].push({ nome: 'Comerciante Armas VI a IX', pos: [150, 200] });
+      comerciantesArmas["X a XII"].push({ nome: 'Comerciante Armas X a XII', pos: [150, 250] });
+      
+      comerciantesArmaduras["I a V"].push({ nome: 'Comerciante Armaduras I a V', pos: [250, 150] });
+      comerciantesArmaduras["VI a IX"].push({ nome: 'Comerciante Armaduras VI a IX', pos: [250, 200] });
+      comerciantesArmaduras["X a XII"].push({ nome: 'Comerciante Armaduras X a XII', pos: [250, 250] });
+      
+      comerciantesAneis["I a V"].push({ nome: 'Comerciante Anéis I a V', pos: [350, 150] });
+      comerciantesAneis["VI a IX"].push({ nome: 'Comerciante Anéis VI a IX', pos: [350, 200] });
+      comerciantesAneis["X a XII"].push({ nome: 'Comerciante Anéis X a XII', pos: [350, 250] });
+      
+      comerciantesPos["I a V"].push({ nome: 'Comerciante Pós I a V', pos: [450, 150] });
+      comerciantesPos["VI a IX"].push({ nome: 'Pós VI a IX', pos: [800, 263] });
+      comerciantesPos["X a XII"].push({ nome: 'Comerciante Pós X a XII', pos: [450, 250] });
+      
+      addComercianteMarkers(comercianteLayerArmas, comerciantesArmas, comercianteArmasIcon);
+      addComercianteMarkers(comercianteLayerArmaduras, comerciantesArmaduras, comercianteArmadurasIcon);
+      addComercianteMarkers(comercianteLayerAneis, comerciantesAneis, comercianteAneisIcon);
+      addComercianteMarkers(comercianteLayerPos, comerciantesPos, comerciantePosIcon);
+      
+      // Atualiza as sugestões para a pesquisa também com comerciantes
+      function updateAllSuggestions() {
+        suggestions = [];
+        [castelos15, castelos30, castelos45].forEach(function(arr) {
+          arr.forEach(function(item) {
+            suggestions.push(item.nome);
+          });
+        });
+        teleportes.forEach(function(item) {
+          suggestions.push(item.nome);
+        });
+        for (var key in comerciantesArmas) {
+          comerciantesArmas[key].forEach(function(item) {
+            suggestions.push(item.nome);
+          });
+        }
+        for (var key in comerciantesArmaduras) {
+          comerciantesArmaduras[key].forEach(function(item) {
+            suggestions.push(item.nome);
+          });
+        }
+        for (var key in comerciantesAneis) {
+          comerciantesAneis[key].forEach(function(item) {
+            suggestions.push(item.nome);
+          });
+        }
+        for (var key in comerciantesPos) {
+          comerciantesPos[key].forEach(function(item) {
+            suggestions.push(item.nome);
+          });
+        }
+        // Você pode adicionar outras categorias se desejar
+      }
+      updateAllSuggestions();
+      
+      // Exibe inicialmente todas as layers e marca todos os checkboxes
+      showAll();
+      
+      // Função para atualizar todas as layers (usada pelos botões "Mostrar tudo" / "Esconder tudo")
+      function updateAllLayers(visible) {
+        if (visible) {
+          if (!map.hasLayer(castleLayer15)) map.addLayer(castleLayer15);
+          if (!map.hasLayer(castleLayer30)) map.addLayer(castleLayer30);
+          if (!map.hasLayer(castleLayer45)) map.addLayer(castleLayer45);
+          if (!map.hasLayer(teleporteLayer)) map.addLayer(teleporteLayer);
+          if (!map.hasLayer(florestaLayer)) map.addLayer(florestaLayer);
+          if (!map.hasLayer(profissaoLayer)) map.addLayer(profissaoLayer);
+          if (!map.hasLayer(crateraLayer)) map.addLayer(crateraLayer);
+          if (!map.hasLayer(comercianteLayerArmas)) map.addLayer(comercianteLayerArmas);
+          if (!map.hasLayer(comercianteLayerArmaduras)) map.addLayer(comercianteLayerArmaduras);
+          if (!map.hasLayer(comercianteLayerAneis)) map.addLayer(comercianteLayerAneis);
+          if (!map.hasLayer(comercianteLayerPos)) map.addLayer(comercianteLayerPos);
+        } else {
+          if (map.hasLayer(castleLayer15)) map.removeLayer(castleLayer15);
+          if (map.hasLayer(castleLayer30)) map.removeLayer(castleLayer30);
+          if (map.hasLayer(castleLayer45)) map.removeLayer(castleLayer45);
+          if (map.hasLayer(teleporteLayer)) map.removeLayer(teleporteLayer);
+          if (map.hasLayer(florestaLayer)) map.removeLayer(florestaLayer);
+          if (map.hasLayer(profissaoLayer)) map.removeLayer(profissaoLayer);
+          if (map.hasLayer(crateraLayer)) map.removeLayer(crateraLayer);
+          if (map.hasLayer(comercianteLayerArmas)) map.removeLayer(comercianteLayerArmas);
+          if (map.hasLayer(comercianteLayerAneis)) map.removeLayer(comercianteLayerAneis);
+          if (map.hasLayer(comercianteLayerPos)) map.removeLayer(comercianteLayerPos);
+          if (map.hasLayer(comercianteLayerArmaduras)) map.removeLayer(comercianteLayerArmaduras);
+        }
+      }
+      
+      // Funções para os botões "Mostrar tudo" e "Esconder tudo"
+      function showAll() {
+        updateAllLayers(true);
+        document.querySelectorAll("#control-panel input[type='checkbox']").forEach(function(chk){
+          chk.checked = true;
+        });
+      }
+      function hideAll() {
+        updateAllLayers(false);
+        document.querySelectorAll("#control-panel input[type='checkbox']").forEach(function(chk){
+          chk.checked = false;
+        });
+      }
+      document.getElementById("showAll").addEventListener("click", showAll);
+      document.getElementById("hideAll").addEventListener("click", hideAll);
+      
+      // Função de pesquisa: busca entre os marcadores de castelos, teleportes e comerciantes
+      function searchMarkers(query) {
+        query = query.toLowerCase();
+        var found = false;
+        var markerFound;
+        function searchLayerGroup(layerGroup) {
+          layerGroup.eachLayer(function(marker) {
+            var content = marker.getTooltip().getContent().replace(/<[^>]+>/g, '').toLowerCase();
+            if (content.indexOf(query) !== -1) {
+              markerFound = marker;
+              found = true;
+            }
+          });
+        }
+        searchLayerGroup(castleLayer15);
+        searchLayerGroup(castleLayer30);
+        searchLayerGroup(castleLayer45);
+        searchLayerGroup(teleporteLayer);
+        searchLayerGroup(comercianteLayerArmas);
+        searchLayerGroup(comercianteLayerArmaduras);
+        searchLayerGroup(comercianteLayerAneis);
+        searchLayerGroup(comercianteLayerPos);
+        if (found && markerFound) {
+          map.setView(markerFound.getLatLng(), 1);
+          markerFound.openTooltip();
+        } else {
+          alert("Nenhum marcador encontrado para: " + query);
+        }
+      }
+      
+      document.getElementById("searchButton").addEventListener("click", function() {
+        var query = searchInput.value;
+        searchMarkers(query);
+      });
+    });
+  </script>
+</body>
+</html>

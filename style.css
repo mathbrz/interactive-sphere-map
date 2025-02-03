@@ -1,0 +1,59 @@
+/* Layout geral com painel à esquerda e mapa ocupando o restante da tela */
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    display: flex;
+    font-family: Arial, sans-serif;
+  }
+  
+  /* Painel esquerdo: fundo escuro, largura fixa e padding */
+  #left-panel {
+    width: 350px;
+    background-color: #222;
+    color: #fff;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  
+  /* Título do painel */
+  #left-panel h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+  }
+  
+  /* Itens do painel */
+  .panel-item {
+    background-color: #333;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .panel-item:hover {
+    background-color: #444;
+  }
+  
+  /* Container do mapa: ocupa o espaço restante da tela */
+  #map {
+    flex-grow: 1;
+    height: 100vh;
+    /* Opcional: descomente a linha abaixo para visualizar o contorno do mapa durante a depuração */
+    /* border: 1px solid red; */
+  }
+  
+  /* Estilo do tooltip dos castelos */
+  .castle-label {
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+    color: white;
+    text-shadow: 1px 1px 2px black;
+    white-space: nowrap;
+    background: none;
+    border: none;
+    padding: 2px;
+  }
+  
